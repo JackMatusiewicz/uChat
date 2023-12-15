@@ -17,11 +17,12 @@ fn main() {
 
     let runtime = tokio::runtime::Builder::new_current_thread().thread_name("read").enable_io().build().unwrap();
     let runtime2 = tokio::runtime::Builder::new_current_thread().thread_name("write").enable_io().build().unwrap();
-    let read_handle = std::thread::spawn(move || {
+    let read_jh = std::thread::spawn(move || {
         runtime.block_on(async move {
             let socket = Socket::new(Domain::IPV4, Type::DGRAM, Some(Protocol::UDP)).unwrap();
             socket.join_multicast_v4(&Ipv4Addr::new(224, 0, 0, 69), &Ipv4Addr::UNSPECIFIED).unwrap();
             socket.bind(&SocketAddrV4::new(Ipv4Addr::UNSPECIFIED, PORT).into()).unwrap();
+            socket.set_read_timeout(Some(Duration::from_millis(200))).unwrap();
     
             let udp_socket = tokio::net::UdpSocket::from_std(socket.into()).unwrap();
     
@@ -45,7 +46,7 @@ fn main() {
             let socket = Socket::new(Domain::IPV4, Type::DGRAM, Some(Protocol::UDP)).unwrap();
             socket.set_multicast_if_v4(&Ipv4Addr::UNSPECIFIED).unwrap();
             socket.bind(&SocketAddrV4::new(Ipv4Addr::UNSPECIFIED, 0).into()).unwrap();
-    
+            socket.set_write_timeout(Some(Duration::from_millis(200))).unwrap();
     
             let udp_socket = tokio::net::UdpSocket::from_std(socket.into()).unwrap();
             let mut ctr = 1;
@@ -65,7 +66,8 @@ fn main() {
         let v = std::io::stdin().read_line(&mut str);
         match v {
             Ok(_) => {
-                if str == "end" {
+                println!("read: {}", str);
+                if str.starts_with("end") {
                     println!("Program will end");
                     is_finished.store(true, std::sync::atomic::Ordering::Relaxed);
                     break;
@@ -74,4 +76,6 @@ fn main() {
             _ => {}
         }
     }
+    read_jh.join().unwrap();
+    write_jh.join().unwrap();
 }
