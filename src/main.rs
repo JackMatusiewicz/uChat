@@ -10,6 +10,17 @@ lazy_static! {
     pub static ref IPV4: IpAddr = Ipv4Addr::new(224, 0, 0, 69).into();
 }
 
+#[cfg(windows)]
+fn bind_socket_multicast(socket: &Socket, addr: &SocketAddr) -> io::Result<()> {
+    let addr = SocketAddr::new(Ipv4Addr::new(0, 0, 0, 0).into(), addr.port());
+    socket.bind(&socket2::SockAddr::from(addr))
+}
+
+#[cfg(unix)]
+fn bind_socket_multicast(socket: &Socket, addr: &SocketAddr) -> io::Result<()> {
+    socket.bind(&socket2::SockAddr::from(addr))
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     let is_finished = Arc::new(AtomicBool::new(false));
@@ -19,7 +30,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let read_jh = tokio::spawn(async move {
         let socket = Socket::new(Domain::IPV4, Type::DGRAM, Some(Protocol::UDP)).unwrap();
             socket.join_multicast_v4(&Ipv4Addr::new(224, 0, 0, 69), &Ipv4Addr::UNSPECIFIED).unwrap();
-            socket.bind(&SocketAddrV4::new(Ipv4Addr::UNSPECIFIED, PORT).into()).unwrap();
+            let sa = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(224, 0, 0, 69)), PORT);
+            bind_socket_multicast(&socket, &sa).unwrap();
             socket.set_read_timeout(Some(Duration::from_millis(200))).unwrap();
             let udp_socket = tokio::net::UdpSocket::from_std(socket.into()).unwrap();
     
