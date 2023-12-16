@@ -66,7 +66,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         }
     });
 
-
+    println!("Starting loop");
     loop {
         let mut str = String::new();
         let v = std::io::stdin().read_line(&mut str);
