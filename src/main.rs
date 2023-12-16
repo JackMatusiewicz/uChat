@@ -2,7 +2,7 @@
 use lazy_static::lazy_static;
 
 use socket2::{Domain, Protocol, SockAddr, Socket, Type};
-use std::{net::{IpAddr, Ipv4Addr, SocketAddr, SocketAddrV4}, sync::{atomic::AtomicBool, Arc}, io, mem::{MaybeUninit, ManuallyDrop}, time::Duration, error::Error};
+use std::{net::{IpAddr, Ipv4Addr, SocketAddr, SocketAddrV4}, sync::{atomic::AtomicBool, Arc}, io, time::Duration, error::Error};
 
 static PORT: u16 = 7982;
 
