@@ -18,7 +18,7 @@ fn bind_socket_multicast(socket: &Socket, addr: &SocketAddr) -> io::Result<()> {
 
 #[cfg(unix)]
 fn bind_socket_multicast(socket: &Socket, addr: &SocketAddr) -> io::Result<()> {
-    socket.bind(&socket2::SockAddr::from(addr))
+    socket.bind(&socket2::SockAddr::from(*addr))
 }
 
 #[tokio::main]
@@ -58,7 +58,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         let udp_socket = tokio::net::UdpSocket::from_std(socket.into()).unwrap();
         let mut ctr = 1;
         while !write_handle.load(std::sync::atomic::Ordering::Relaxed) {
-            let to_send = format!("Jack has {} braincells", ctr);
+            let to_send = format!("Ivy has {} braincells", ctr);
             let bytes = to_send.as_bytes();
             udp_socket.send_to(&bytes, &SocketAddrV4::new(Ipv4Addr::new(224, 0, 0, 69), PORT)).await.unwrap();
             std::thread::sleep(Duration::from_secs(2));
