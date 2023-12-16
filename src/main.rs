@@ -2,7 +2,7 @@
 use lazy_static::lazy_static;
 
 use socket2::{Domain, Protocol, SockAddr, Socket, Type};
-use std::{net::{IpAddr, Ipv4Addr, SocketAddr, SocketAddrV4}, sync::{atomic::AtomicBool, Arc}, io, mem::{MaybeUninit, ManuallyDrop}, time::Duration};
+use std::{net::{IpAddr, Ipv4Addr, SocketAddr, SocketAddrV4}, sync::{atomic::AtomicBool, Arc}, io, mem::{MaybeUninit, ManuallyDrop}, time::Duration, error::Error};
 
 static PORT: u16 = 7982;
 
@@ -10,20 +10,17 @@ lazy_static! {
     pub static ref IPV4: IpAddr = Ipv4Addr::new(224, 0, 0, 69).into();
 }
 
-fn main() {
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn Error>> {
     let is_finished = Arc::new(AtomicBool::new(false));
     let read_handle = is_finished.clone();
     let write_handle = is_finished.clone();
 
-    let runtime = tokio::runtime::Builder::new_current_thread().thread_name("read").enable_io().build().unwrap();
-    let runtime2 = tokio::runtime::Builder::new_current_thread().thread_name("write").enable_io().build().unwrap();
-    let read_jh = std::thread::spawn(move || {
-        runtime.block_on(async move {
-            let socket = Socket::new(Domain::IPV4, Type::DGRAM, Some(Protocol::UDP)).unwrap();
+    let read_jh = tokio::spawn(async move {
+        let socket = Socket::new(Domain::IPV4, Type::DGRAM, Some(Protocol::UDP)).unwrap();
             socket.join_multicast_v4(&Ipv4Addr::new(224, 0, 0, 69), &Ipv4Addr::UNSPECIFIED).unwrap();
             socket.bind(&SocketAddrV4::new(Ipv4Addr::UNSPECIFIED, PORT).into()).unwrap();
             socket.set_read_timeout(Some(Duration::from_millis(200))).unwrap();
-    
             let udp_socket = tokio::net::UdpSocket::from_std(socket.into()).unwrap();
     
             let mut buf: [u8; 50] = [0;50];
@@ -38,26 +35,23 @@ fn main() {
                     }
                 }
             }
-        });
     });
 
-    let write_jh = std::thread::spawn(move || {
-        runtime2.block_on(async move {
-            let socket = Socket::new(Domain::IPV4, Type::DGRAM, Some(Protocol::UDP)).unwrap();
-            socket.set_multicast_if_v4(&Ipv4Addr::UNSPECIFIED).unwrap();
-            socket.bind(&SocketAddrV4::new(Ipv4Addr::UNSPECIFIED, 0).into()).unwrap();
-            socket.set_write_timeout(Some(Duration::from_millis(200))).unwrap();
-    
-            let udp_socket = tokio::net::UdpSocket::from_std(socket.into()).unwrap();
-            let mut ctr = 1;
-            while !write_handle.load(std::sync::atomic::Ordering::Relaxed) {
-                let to_send = format!("Jack has {} braincells", ctr);
-                let bytes = to_send.as_bytes();
-                udp_socket.send_to(&bytes, &SocketAddrV4::new(Ipv4Addr::new(224, 0, 0, 69), PORT)).await.unwrap();
-                std::thread::sleep(Duration::from_secs(2));
-                ctr += 1;
-            }
-        })
+    let write_jh = tokio::spawn(async move {
+        let socket = Socket::new(Domain::IPV4, Type::DGRAM, Some(Protocol::UDP)).unwrap();
+        socket.set_multicast_if_v4(&Ipv4Addr::UNSPECIFIED).unwrap();
+        socket.bind(&SocketAddrV4::new(Ipv4Addr::UNSPECIFIED, 0).into()).unwrap();
+        socket.set_write_timeout(Some(Duration::from_millis(200))).unwrap();
+
+        let udp_socket = tokio::net::UdpSocket::from_std(socket.into()).unwrap();
+        let mut ctr = 1;
+        while !write_handle.load(std::sync::atomic::Ordering::Relaxed) {
+            let to_send = format!("Jack has {} braincells", ctr);
+            let bytes = to_send.as_bytes();
+            udp_socket.send_to(&bytes, &SocketAddrV4::new(Ipv4Addr::new(224, 0, 0, 69), PORT)).await.unwrap();
+            std::thread::sleep(Duration::from_secs(2));
+            ctr += 1;
+        }
     });
 
 
@@ -76,6 +70,8 @@ fn main() {
             _ => {}
         }
     }
-    read_jh.join().unwrap();
-    write_jh.join().unwrap();
+    read_jh.await?;
+    write_jh.await?;
+
+    Ok(())
 }
