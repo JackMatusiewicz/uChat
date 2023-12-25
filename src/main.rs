@@ -2,18 +2,15 @@ use lazy_static::lazy_static;
 
 use socket2::{Domain, Protocol, SockAddr, Socket, Type};
 use std::{
-    error::Error,
+    any::Any,
     io,
     net::{IpAddr, Ipv4Addr, SocketAddr, SocketAddrV4},
     sync::{atomic::AtomicBool, Arc},
     time::Duration,
 };
 
-static PORT: u16 = 7982;
-
-lazy_static! {
-    pub static ref IPV4: IpAddr = Ipv4Addr::new(224, 0, 0, 69).into();
-}
+const PORT: u16 = 7982;
+const MULTICAST_ADDRESS: Ipv4Addr = Ipv4Addr::new(224, 0, 0, 69); 
 
 #[cfg(windows)]
 fn bind_socket_multicast(socket: &Socket, addr: &SocketAddr) -> io::Result<()> {
@@ -26,7 +23,7 @@ fn bind_socket_multicast(socket: &Socket, addr: &SocketAddr) -> io::Result<()> {
     socket.bind(&socket2::SockAddr::from(*addr))
 }
 
-fn main() -> Result<(), Box<dyn Error + Send>> {
+fn main() -> Result<(), Box<dyn Any + Send>> {
     let is_finished = Arc::new(AtomicBool::new(false));
     let read_handle = is_finished.clone();
     let read_print_handle = is_finished.clone();
@@ -40,9 +37,9 @@ fn main() -> Result<(), Box<dyn Error + Send>> {
     let read_jh = std::thread::spawn(move || {
         let socket = Socket::new(Domain::IPV4, Type::DGRAM, Some(Protocol::UDP)).unwrap();
         socket
-            .join_multicast_v4(&Ipv4Addr::new(224, 0, 0, 69), &Ipv4Addr::UNSPECIFIED)
+            .join_multicast_v4(&MULTICAST_ADDRESS, &Ipv4Addr::UNSPECIFIED)
             .unwrap();
-        let sa = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(224, 0, 0, 69)), PORT);
+        let sa = SocketAddr::new(IpAddr::V4(MULTICAST_ADDRESS), PORT);
         bind_socket_multicast(&socket, &sa).unwrap();
         socket
             .set_read_timeout(Some(Duration::from_millis(200)))
@@ -104,13 +101,13 @@ fn main() -> Result<(), Box<dyn Error + Send>> {
                 udp_socket
                     .send_to(
                         &bytes,
-                        &SocketAddrV4::new(Ipv4Addr::new(224, 0, 0, 69), PORT),
-                    ).unwrap();
+                        &SocketAddrV4::new(MULTICAST_ADDRESS, PORT),
+                    )
+                    .unwrap();
             }
         }
     });
 
-    println!("Starting loop");
     loop {
         let mut str = String::new();
         let v = std::io::stdin().read_line(&mut str);
@@ -127,9 +124,9 @@ fn main() -> Result<(), Box<dyn Error + Send>> {
             _ => {}
         }
     }
-    read_jh.join();
-    read_print_jh.join();
-    write_jh.join();
+    read_jh.join()?;
+    read_print_jh.join()?;
+    write_jh.join()?;
 
     Ok(())
 }
