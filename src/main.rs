@@ -12,7 +12,7 @@ use std::{
 };
 
 const PORT: u16 = 7982;
-const MULTICAST_ADDRESS: Ipv4Addr = Ipv4Addr::new(224, 0, 0, 69); 
+const MULTICAST_ADDRESS: Ipv4Addr = Ipv4Addr::new(224, 0, 0, 69);
 
 #[cfg(windows)]
 fn bind_socket_multicast(socket: &Socket, addr: &SocketAddr) -> io::Result<()> {
@@ -46,8 +46,8 @@ fn main() -> std::io::Result<()> {
         let udp_socket = std::net::UdpSocket::from(socket);
         reader_ready.store(true, std::sync::atomic::Ordering::Relaxed);
 
-        let mut buf: [u8; 50] = [0; 50];
         while !read_handle.load(std::sync::atomic::Ordering::Relaxed) {
+            let mut buf: [u8; 50] = [0; 50];
             match udp_socket.recv_from(&mut buf) {
                 Ok(_) => {
                     let value = String::from_utf8_lossy(&buf);
