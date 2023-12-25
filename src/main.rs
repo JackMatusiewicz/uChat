@@ -1,5 +1,7 @@
-use lazy_static::lazy_static;
+mod app;
+mod network_details;
 
+use network_details::NetworkDetails;
 use socket2::{Domain, Protocol, SockAddr, Socket, Type};
 use std::{
     any::Any,
@@ -23,18 +25,15 @@ fn bind_socket_multicast(socket: &Socket, addr: &SocketAddr) -> io::Result<()> {
     socket.bind(&socket2::SockAddr::from(*addr))
 }
 
-fn main() -> Result<(), Box<dyn Any + Send>> {
+fn main() -> std::io::Result<()> {
     let is_finished = Arc::new(AtomicBool::new(false));
     let read_handle = is_finished.clone();
-    let read_print_handle = is_finished.clone();
     let write_handle = is_finished.clone();
     let reader_ready = Arc::new(AtomicBool::new(false));
-    let rr = reader_ready.clone();
     let writer_ready = Arc::new(AtomicBool::new(false));
-    let wr = writer_ready.clone();
 
-    let (sender, receiver) = std::sync::mpsc::channel::<String>();
-    let read_jh = std::thread::spawn(move || {
+    let (sender, network_receiver) = std::sync::mpsc::channel::<String>();
+    let read_from_network_handle = std::thread::spawn(move || {
         let socket = Socket::new(Domain::IPV4, Type::DGRAM, Some(Protocol::UDP)).unwrap();
         socket
             .join_multicast_v4(&MULTICAST_ADDRESS, &Ipv4Addr::UNSPECIFIED)
@@ -59,19 +58,8 @@ fn main() -> Result<(), Box<dyn Any + Send>> {
         }
     });
 
-    let read_print_jh = std::thread::spawn(move || {
-        while !read_print_handle.load(std::sync::atomic::Ordering::Relaxed) {
-            match receiver.try_recv() {
-                Ok(v) => {
-                    println!("Received: {v}");
-                }
-                Err(_) => {}
-            }
-        }
-    });
-
     let (sender, receiver) = std::sync::mpsc::channel::<String>();
-    let write_jh = std::thread::spawn(move || {
+    let write_to_network_handle = std::thread::spawn(move || {
         let socket = Socket::new(Domain::IPV4, Type::DGRAM, Some(Protocol::UDP)).unwrap();
         socket.set_multicast_if_v4(&Ipv4Addr::UNSPECIFIED).unwrap();
         socket
@@ -108,25 +96,23 @@ fn main() -> Result<(), Box<dyn Any + Send>> {
         }
     });
 
-    loop {
-        let mut str = String::new();
-        let v = std::io::stdin().read_line(&mut str);
-        match v {
-            Ok(_) => {
-                if str.starts_with("end") {
-                    println!("Program will end");
-                    is_finished.store(true, std::sync::atomic::Ordering::Relaxed);
-                    break;
-                } else {
-                    sender.send(str).unwrap();
-                }
-            }
-            _ => {}
-        }
-    }
-    read_jh.join()?;
-    read_print_jh.join()?;
-    write_jh.join()?;
+    let details = NetworkDetails {
+            network_message_receiver: network_receiver,
+            send_message_to_network: sender,
+            send_to_network_handle: write_to_network_handle,
+            receive_from_network_handle: read_from_network_handle
+    };
+
+    let finished = is_finished.clone();
+    eframe::run_native(
+        "Chat Room",
+        Default::default(),
+        Box::new(|eframe::CreationContext { egui_ctx, .. }| {
+            egui_ctx.set_visuals(eframe::egui::Visuals::dark());
+            Box::new(app::App::new(finished, details))
+        }),
+    )
+    .unwrap();
 
     Ok(())
 }
