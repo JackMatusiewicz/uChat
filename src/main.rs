@@ -26,8 +26,7 @@ fn bind_socket_multicast(socket: &Socket, addr: &SocketAddr) -> io::Result<()> {
     socket.bind(&socket2::SockAddr::from(*addr))
 }
 
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn Error>> {
+fn main() -> Result<(), Box<dyn Error + Send>> {
     let is_finished = Arc::new(AtomicBool::new(false));
     let read_handle = is_finished.clone();
     let read_print_handle = is_finished.clone();
@@ -38,7 +37,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let wr = writer_ready.clone();
 
     let (sender, receiver) = std::sync::mpsc::channel::<String>();
-    let read_jh = tokio::spawn(async move {
+    let read_jh = std::thread::spawn(move || {
         let socket = Socket::new(Domain::IPV4, Type::DGRAM, Some(Protocol::UDP)).unwrap();
         socket
             .join_multicast_v4(&Ipv4Addr::new(224, 0, 0, 69), &Ipv4Addr::UNSPECIFIED)
@@ -48,12 +47,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
         socket
             .set_read_timeout(Some(Duration::from_millis(200)))
             .unwrap();
-        let udp_socket = tokio::net::UdpSocket::from_std(socket.into()).unwrap();
+        let udp_socket = std::net::UdpSocket::from(socket);
         reader_ready.store(true, std::sync::atomic::Ordering::Relaxed);
 
         let mut buf: [u8; 50] = [0; 50];
         while !read_handle.load(std::sync::atomic::Ordering::Relaxed) {
-            match udp_socket.recv_from(&mut buf).await {
+            match udp_socket.recv_from(&mut buf) {
                 Ok(_) => {
                     let value = String::from_utf8_lossy(&buf);
                     sender.send(value.into_owned()).unwrap();
@@ -63,7 +62,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         }
     });
 
-    let read_print_jh = tokio::spawn(async move {
+    let read_print_jh = std::thread::spawn(move || {
         while !read_print_handle.load(std::sync::atomic::Ordering::Relaxed) {
             match receiver.try_recv() {
                 Ok(v) => {
@@ -75,7 +74,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     });
 
     let (sender, receiver) = std::sync::mpsc::channel::<String>();
-    let write_jh = tokio::spawn(async move {
+    let write_jh = std::thread::spawn(move || {
         let socket = Socket::new(Domain::IPV4, Type::DGRAM, Some(Protocol::UDP)).unwrap();
         socket.set_multicast_if_v4(&Ipv4Addr::UNSPECIFIED).unwrap();
         socket
@@ -84,7 +83,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         socket
             .set_write_timeout(Some(Duration::from_millis(200)))
             .unwrap();
-        let udp_socket = tokio::net::UdpSocket::from_std(socket.into()).unwrap();
+        let udp_socket: std::net::UdpSocket = std::net::UdpSocket::from(socket);
         writer_ready.store(true, std::sync::atomic::Ordering::Relaxed);
 
         while !write_handle.load(std::sync::atomic::Ordering::Relaxed) {
@@ -106,9 +105,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     .send_to(
                         &bytes,
                         &SocketAddrV4::new(Ipv4Addr::new(224, 0, 0, 69), PORT),
-                    )
-                    .await
-                    .unwrap();
+                    ).unwrap();
             }
         }
     });
@@ -130,9 +127,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
             _ => {}
         }
     }
-    read_jh.await?;
-    read_print_jh.await?;
-    write_jh.await?;
+    read_jh.join();
+    read_print_jh.join();
+    write_jh.join();
 
     Ok(())
 }
