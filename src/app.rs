@@ -38,25 +38,42 @@ impl eframe::App for App {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         // Each update we try to pull in another message from the network.
         match self.details.as_ref().unwrap().network_message_receiver.try_recv() {
-            Ok(msg) => {self.seen_messages.push(msg)},
+            Ok(msg) => {
+                println!("Received message: {msg}");
+                self.seen_messages.push(msg)
+            },
             Err(_) => {}
         }
 
         // Now we draw the UI and potentially send a message if we have one.
         egui::CentralPanel::default().show(ctx, |ui| {
-            ui.heading("Chat Log");
-            ui.label("Note that all communication in this chat room is unencrypted and multi-casted.");
+            ui.heading("Messages");
+            ui.label("N.B: Any data sent to the multicast address will be shown here.");
             ui.separator();
             egui::ScrollArea::vertical().show(ui, |ui| {
                 for line in self.seen_messages.iter() {
                     let (addr, msg) = line.split_once(' ').unwrap();
                     ui.horizontal(|ui| {
                         use egui::RichText;
-                        ui.label(RichText::new(addr).font(FontId::monospace(12.0)).color(egui::Color32::GREEN));
-                        ui.label(RichText::new(msg).font(FontId::monospace(12.0)));
+                        ui.label(RichText::new(addr).font(FontId::monospace(13.0)).color(egui::Color32::GOLD));
+                        ui.label(RichText::new(msg).font(FontId::monospace(13.0)));
                     });
                 }
             })
+        });
+
+        egui::TopBottomPanel::bottom("user-input").show(ctx, |ui| {
+            let widget = egui::TextEdit::singleline(&mut self.current_message)
+                .desired_width(f32::INFINITY)
+                .hint_text("Press Enter to send the message")
+                .font(FontId::proportional(16.0))
+                .margin(egui::vec2(8.0, 8.0));
+            if ui.add(widget).lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
+                let message_to_send = self.current_message.clone();
+                println!("sending message: {message_to_send}");
+                self.current_message = "".to_owned();
+                self.details.as_ref().unwrap().send_message_to_network.send(message_to_send).expect("receiver closed");
+            }
         });
     }
 }
