@@ -1,5 +1,6 @@
 mod app;
 mod network_details;
+mod messages;
 
 use network_details::NetworkDetails;
 use socket2::{Domain, Protocol, SockAddr, Socket, Type};
