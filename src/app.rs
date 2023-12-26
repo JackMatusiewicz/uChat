@@ -1,5 +1,5 @@
 use eframe::egui;
-use egui::FontId;
+use egui::{FontId, RichText};
 use std::{sync::{atomic::AtomicBool, mpsc::{Receiver, Sender}, Arc}, thread::JoinHandle, any::Any};
 
 use crate::network_details::NetworkDetails;
@@ -50,7 +50,14 @@ impl eframe::App for App {
             .hint_text("Enter your username here.")
             .font(FontId::proportional(16.0))
             .margin(egui::vec2(8.0, 8.0));
-            ui.add(widget);
+            ui.horizontal(|ui| {
+                ui.label(
+                    RichText::new("Username:".to_owned())
+                    .font(FontId::monospace(13.0))
+                    .color(egui::Color32::LIGHT_GREEN)
+                    .line_height(Some(1.0)));
+                ui.add(widget);
+            });
         });
 
         // Now we draw the UI and potentially send a message if we have one.
