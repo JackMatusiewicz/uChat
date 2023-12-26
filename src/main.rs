@@ -51,7 +51,6 @@ fn main() -> std::io::Result<()> {
             match udp_socket.recv_from(&mut buf) {
                 Ok(_) => {
                     let value = String::from_utf8_lossy(&buf);
-                    println!("Socket received: {value}");
                     sender.send(value.into_owned()).unwrap();
                 }
                 _ => {}
@@ -86,7 +85,6 @@ fn main() -> std::io::Result<()> {
             }
 
             if send_value {
-                println!("Going to send the following via udp: {val}");
                 let bytes = val.as_bytes();
                 udp_socket
                     .send_to(
@@ -107,7 +105,7 @@ fn main() -> std::io::Result<()> {
 
     let finished = is_finished.clone();
     eframe::run_native(
-        "Chat Room",
+        "µChat",
         Default::default(),
         Box::new(|eframe::CreationContext { egui_ctx, .. }| {
             egui_ctx.set_visuals(eframe::egui::Visuals::dark());
