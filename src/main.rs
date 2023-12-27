@@ -1,6 +1,6 @@
 mod app;
-mod network_details;
 mod messages;
+mod network_details;
 
 use network_details::NetworkDetails;
 use socket2::{Domain, Protocol, SockAddr, Socket, Type};
@@ -88,20 +88,17 @@ fn main() -> std::io::Result<()> {
             if send_value {
                 let bytes = val.as_bytes();
                 udp_socket
-                    .send_to(
-                        &bytes,
-                        &SocketAddrV4::new(MULTICAST_ADDRESS, PORT),
-                    )
+                    .send_to(&bytes, &SocketAddrV4::new(MULTICAST_ADDRESS, PORT))
                     .unwrap();
             }
         }
     });
 
     let details = NetworkDetails {
-            network_message_receiver: network_receiver,
-            send_message_to_network: sender,
-            send_to_network_handle: write_to_network_handle,
-            receive_from_network_handle: read_from_network_handle
+        network_message_receiver: network_receiver,
+        send_message_to_network: sender,
+        send_to_network_handle: write_to_network_handle,
+        receive_from_network_handle: read_from_network_handle,
     };
 
     let finished = is_finished.clone();

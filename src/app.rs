@@ -1,6 +1,14 @@
 use eframe::egui;
 use egui::{FontId, RichText};
-use std::{sync::{atomic::AtomicBool, mpsc::{Receiver, Sender}, Arc}, thread::JoinHandle, any::Any};
+use std::{
+    any::Any,
+    sync::{
+        atomic::AtomicBool,
+        mpsc::{Receiver, Sender},
+        Arc,
+    },
+    thread::JoinHandle,
+};
 
 use crate::network_details::NetworkDetails;
 
@@ -9,24 +17,25 @@ pub struct App {
     details: Option<NetworkDetails>,
     username: String,
     seen_messages: Vec<String>,
-    current_message: String
+    current_message: String,
 }
 
 impl App {
-    pub fn new (is_finished: Arc<AtomicBool>, details: NetworkDetails) -> Self {
+    pub fn new(is_finished: Arc<AtomicBool>, details: NetworkDetails) -> Self {
         Self {
             is_finished,
             details: Some(details),
             username: "".to_owned(),
             seen_messages: vec![],
-            current_message: "".to_owned()
+            current_message: "".to_owned(),
         }
     }
 }
 
 impl eframe::App for App {
     fn on_exit(&mut self, ctx: Option<&eframe::glow::Context>) {
-        self.is_finished.store(true, std::sync::atomic::Ordering::Relaxed);
+        self.is_finished
+            .store(true, std::sync::atomic::Ordering::Relaxed);
         let details = self.details.take().unwrap();
         drop(details.network_message_receiver);
         drop(details.send_message_to_network);
@@ -37,25 +46,30 @@ impl eframe::App for App {
 
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         // Each update we try to pull in another message from the network.
-        match self.details.as_ref().unwrap().network_message_receiver.try_recv() {
-            Ok(msg) => {
-                self.seen_messages.push(msg)
-            },
+        match self
+            .details
+            .as_ref()
+            .unwrap()
+            .network_message_receiver
+            .try_recv()
+        {
+            Ok(msg) => self.seen_messages.push(msg),
             Err(_) => {}
         }
 
         egui::TopBottomPanel::top("username").show(ctx, |ui| {
             let widget = egui::TextEdit::singleline(&mut self.username)
-            .desired_width(f32::INFINITY)
-            .hint_text("Enter your username here.")
-            .font(FontId::proportional(16.0))
-            .margin(egui::vec2(8.0, 8.0));
+                .desired_width(f32::INFINITY)
+                .hint_text("Enter your username here.")
+                .font(FontId::proportional(16.0))
+                .margin(egui::vec2(8.0, 8.0));
             ui.horizontal(|ui| {
                 ui.label(
                     RichText::new("Username:".to_owned())
-                    .font(FontId::monospace(13.0))
-                    .color(egui::Color32::LIGHT_GREEN)
-                    .line_height(Some(1.0)));
+                        .font(FontId::monospace(13.0))
+                        .color(egui::Color32::LIGHT_GREEN)
+                        .line_height(Some(1.0)),
+                );
                 ui.add(widget);
             });
         });
@@ -70,7 +84,11 @@ impl eframe::App for App {
                     let (addr, msg) = line.split_once(' ').unwrap();
                     ui.horizontal(|ui| {
                         use egui::RichText;
-                        ui.label(RichText::new(addr).font(FontId::monospace(13.0)).color(egui::Color32::GOLD));
+                        ui.label(
+                            RichText::new(addr)
+                                .font(FontId::monospace(13.0))
+                                .color(egui::Color32::GOLD),
+                        );
                         ui.label(RichText::new(msg).font(FontId::monospace(13.0)));
                     });
                 }
@@ -86,7 +104,12 @@ impl eframe::App for App {
             if ui.add(widget).lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
                 let message_to_send = self.username.clone() + ": " + &self.current_message;
                 self.current_message = "".to_owned();
-                self.details.as_ref().unwrap().send_message_to_network.send(message_to_send).expect("receiver closed");
+                self.details
+                    .as_ref()
+                    .unwrap()
+                    .send_message_to_network
+                    .send(message_to_send)
+                    .expect("receiver closed");
             }
         });
     }

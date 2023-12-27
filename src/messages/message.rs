@@ -2,5 +2,5 @@ use super::{message_header::MessageHeader, specific_message_contents::SpecificMe
 
 pub struct Message {
     header: MessageHeader,
-    contents: SpecificMessageContents
+    contents: SpecificMessageContents,
 }
