@@ -2,10 +2,10 @@ mod app;
 mod messages;
 mod network_details;
 
+use messages::message::Message;
 use network_details::NetworkDetails;
-use socket2::{Domain, Protocol, SockAddr, Socket, Type};
+use socket2::{Domain, Protocol, Socket, Type};
 use std::{
-    any::Any,
     io,
     net::{IpAddr, Ipv4Addr, SocketAddr, SocketAddrV4},
     sync::{atomic::AtomicBool, Arc},
@@ -33,7 +33,7 @@ fn main() -> std::io::Result<()> {
     let reader_ready = Arc::new(AtomicBool::new(false));
     let writer_ready = Arc::new(AtomicBool::new(false));
 
-    let (sender, network_receiver) = std::sync::mpsc::channel::<String>();
+    let (sender, network_receiver) = std::sync::mpsc::channel::<Message>();
     let read_from_network_handle = std::thread::spawn(move || {
         let socket = Socket::new(Domain::IPV4, Type::DGRAM, Some(Protocol::UDP)).unwrap();
         socket
@@ -48,18 +48,19 @@ fn main() -> std::io::Result<()> {
         reader_ready.store(true, std::sync::atomic::Ordering::Relaxed);
 
         while !read_handle.load(std::sync::atomic::Ordering::Relaxed) {
-            let mut buf: [u8; 50] = [0; 50];
+            // TODO - make the max message size part of the spec.
+            let mut buf: [u8; 1024] = [0; 1024];
             match udp_socket.recv_from(&mut buf) {
                 Ok(_) => {
-                    let value = String::from_utf8_lossy(&buf);
-                    sender.send(value.into_owned()).unwrap();
+                    let message = Message::from_bytes(&buf).unwrap();
+                    sender.send(message).unwrap();
                 }
                 _ => {}
             }
         }
     });
 
-    let (sender, receiver) = std::sync::mpsc::channel::<String>();
+    let (sender, receiver) = std::sync::mpsc::channel::<Message>();
     let write_to_network_handle = std::thread::spawn(move || {
         let socket = Socket::new(Domain::IPV4, Type::DGRAM, Some(Protocol::UDP)).unwrap();
         socket.set_multicast_if_v4(&Ipv4Addr::UNSPECIFIED).unwrap();
@@ -73,20 +74,18 @@ fn main() -> std::io::Result<()> {
         writer_ready.store(true, std::sync::atomic::Ordering::Relaxed);
 
         while !write_handle.load(std::sync::atomic::Ordering::Relaxed) {
-            let send_value;
-            let mut val: String = "".to_owned();
+            let mut val: Option<Message> = None;
             match receiver.try_recv() {
                 Ok(v) => {
-                    send_value = true;
-                    val = v;
+                    val = Some(v);
                 }
                 Err(_) => {
-                    send_value = false;
+                    val = None;
                 }
             }
 
-            if send_value {
-                let bytes = val.as_bytes();
+            if let Some(v) = val {
+                let bytes = v.to_bytes();
                 udp_socket
                     .send_to(&bytes, &SocketAddrV4::new(MULTICAST_ADDRESS, PORT))
                     .unwrap();

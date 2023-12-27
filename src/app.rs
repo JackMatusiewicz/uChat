@@ -1,28 +1,22 @@
 use eframe::egui;
 use egui::{FontId, RichText};
-use std::{
-    any::Any,
-    sync::{
-        atomic::AtomicBool,
-        mpsc::{Receiver, Sender},
-        Arc,
-    },
-    thread::JoinHandle,
-};
+use std::sync::{atomic::AtomicBool, Arc};
 
-use crate::network_details::NetworkDetails;
+use crate::{network_details::NetworkDetails, messages::{message::Message, message_header::MessageHeader}};
 
 pub struct App {
+    message_count: u32,
     is_finished: Arc<AtomicBool>,
     details: Option<NetworkDetails>,
     username: String,
-    seen_messages: Vec<String>,
+    seen_messages: Vec<Message>,
     current_message: String,
 }
 
 impl App {
     pub fn new(is_finished: Arc<AtomicBool>, details: NetworkDetails) -> Self {
         Self {
+            message_count: 0,
             is_finished,
             details: Some(details),
             username: "".to_owned(),
@@ -77,19 +71,16 @@ impl eframe::App for App {
         // Now we draw the UI and potentially send a message if we have one.
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.heading("Messages");
-            ui.label("N.B: Any data sent to the multicast address will be shown here.");
             ui.separator();
             egui::ScrollArea::vertical().show(ui, |ui| {
                 for line in self.seen_messages.iter() {
-                    let (addr, msg) = line.split_once(' ').unwrap();
                     ui.horizontal(|ui| {
-                        use egui::RichText;
                         ui.label(
-                            RichText::new(addr)
+                            RichText::new(line.username())
                                 .font(FontId::monospace(13.0))
                                 .color(egui::Color32::GOLD),
                         );
-                        ui.label(RichText::new(msg).font(FontId::monospace(13.0)));
+                        ui.label(RichText::new(line.message_contents()).font(FontId::monospace(13.0)));
                     });
                 }
             })
@@ -102,13 +93,16 @@ impl eframe::App for App {
                 .font(FontId::proportional(16.0))
                 .margin(egui::vec2(8.0, 8.0));
             if ui.add(widget).lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
-                let message_to_send = self.username.clone() + ": " + &self.current_message;
+                let message_header = MessageHeader::new(self.message_count, self.username.clone());
+                self.message_count += 1;
+                let message = Message::new_message(message_header, self.current_message.clone());
+
                 self.current_message = "".to_owned();
                 self.details
                     .as_ref()
                     .unwrap()
                     .send_message_to_network
-                    .send(message_to_send)
+                    .send(message)
                     .expect("receiver closed");
             }
         });

@@ -1,9 +1,23 @@
 use std::time::Instant;
 
-pub struct UserId(i32);
-
 pub struct MessageHeader {
-    user_id: UserId,
+    message_count: u32,
     username: String,
-    sent_time: Instant,
+}
+
+impl MessageHeader {
+    pub fn new(message_count: u32, username: String) -> Self {
+        Self {
+            message_count,
+            username,
+        }
+    }
+
+    pub fn message_count(&self) -> u32 {
+        self.message_count
+    }
+
+    pub fn username(&self) -> &String {
+        &self.username
+    }
 }

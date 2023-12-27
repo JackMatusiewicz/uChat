@@ -4,9 +4,11 @@ use std::{
     thread::JoinHandle,
 };
 
+use crate::messages::message::Message;
+
 pub struct NetworkDetails {
-    pub network_message_receiver: Receiver<String>,
-    pub send_message_to_network: Sender<String>,
+    pub network_message_receiver: Receiver<Message>,
+    pub send_message_to_network: Sender<Message>,
     pub send_to_network_handle: JoinHandle<()>,
     pub receive_from_network_handle: JoinHandle<()>,
 }
