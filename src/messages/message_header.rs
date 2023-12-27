@@ -1,5 +1,5 @@
-use std::time::Instant;
 
+#[derive(PartialEq, Eq, Debug)]
 pub struct MessageHeader {
     message_count: u32,
     username: String,

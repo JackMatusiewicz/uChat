@@ -27,7 +27,7 @@ impl App {
 }
 
 impl eframe::App for App {
-    fn on_exit(&mut self, ctx: Option<&eframe::glow::Context>) {
+    fn on_exit(&mut self, _ctx: Option<&eframe::glow::Context>) {
         self.is_finished
             .store(true, std::sync::atomic::Ordering::Relaxed);
         let details = self.details.take().unwrap();

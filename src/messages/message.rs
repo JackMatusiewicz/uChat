@@ -1,5 +1,10 @@
+use std::error::Error;
+
 use super::{message_header::MessageHeader, specific_message_contents::SpecificMessageContents};
 
+use crate::errors::message_errors::MessageErrors;
+
+#[derive(PartialEq, Eq, Debug)]
 pub struct Message {
     header: MessageHeader,
     contents: SpecificMessageContents,
@@ -33,31 +38,23 @@ impl Message {
         b == 1
     }
 
-    pub fn from_bytes(bytes: &[u8]) -> Option<Self> {
-        if bytes.is_empty() {
-            return None;
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, Box<dyn Error>> {
+
+        if bytes.is_empty() || !Self::is_valid_message_id(bytes[0]) {
+            return Err(Box::new(MessageErrors::InvalidMessageData));
         }
 
-        if !Self::is_valid_message_id(bytes[0]) {
-            return None;
-        }
         // TODO - for now we only have one message type so we will just skip parsing specifics.
-        let message_count = u32::from_be_bytes(bytes[1..5].try_into().unwrap());
-        let username_length = u32::from_be_bytes(bytes[5..9].try_into().unwrap()) as usize;
+        let message_count = u32::from_be_bytes(bytes[1..5].try_into()?);
+        let username_length = u32::from_be_bytes(bytes[5..9].try_into()?) as usize;
         let username = String::from_utf8_lossy(&bytes[9..9+username_length]);
 
         let message_contents_index = 9 + username_length;
-        let message_length =
-            u32::from_be_bytes(bytes[message_contents_index..message_contents_index+4].try_into().unwrap()) as usize;
-        let message_start_position = message_contents_index + 4;
+        let contents = SpecificMessageContents::from_bytes(&bytes[message_contents_index..])?;
+        
         let header = MessageHeader::new(message_count, username.to_string());
-        let contents =
-            SpecificMessageContents::message(
-                String::from_utf8_lossy(
-                    &bytes[message_start_position..message_start_position + message_length])
-                .to_string());
 
-        Some(Self { header, contents })
+        Ok(Self { header, contents })
     }
 
     pub fn username(&self) -> &String {
@@ -75,5 +72,25 @@ impl Message {
             header,
             contents: SpecificMessageContents::Message(contents)
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    pub fn simple_round_trip() -> Result<(), Box<dyn Error>> {
+        let message =
+            Message::new_message(
+                MessageHeader::new(9001, "jackma".to_owned()),
+                "This is a test message".to_owned());
+
+        let bytes = message.to_bytes();
+        let new_message = Message::from_bytes(bytes.as_slice())?;
+
+        assert_eq!(message, new_message);
+
+        Ok(())
     }
 }

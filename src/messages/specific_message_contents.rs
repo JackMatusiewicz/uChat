@@ -1,3 +1,6 @@
+use std::error::Error;
+
+#[derive(PartialEq, Eq, Debug)]
 pub enum SpecificMessageContents {
     Message(String),
 }
@@ -17,5 +20,17 @@ impl SpecificMessageContents {
                 concat_bytes
             }
         }
+    }
+
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, Box<dyn Error>> {
+        let message_length =
+        u32::from_be_bytes(bytes[0..4].try_into()?) as usize;
+        let message_start_position = 4;
+        let contents =
+            SpecificMessageContents::message(
+                String::from_utf8_lossy(
+                    &bytes[message_start_position..message_start_position + message_length])
+                .to_string());
+        Ok(contents)
     }
 }

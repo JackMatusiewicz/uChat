@@ -1,6 +1,7 @@
 mod app;
 mod messages;
 mod network_details;
+mod errors;
 
 use messages::message::Message;
 use network_details::NetworkDetails;
