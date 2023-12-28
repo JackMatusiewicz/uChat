@@ -24,6 +24,20 @@ impl App {
             current_message: "".to_owned(),
         }
     }
+
+    pub fn publish_message(&mut self) {
+        let message_header = MessageHeader::new(self.message_count, self.username.clone());
+        self.message_count += 1;
+        let message = Message::new_message(message_header, self.current_message.clone());
+
+        self.current_message = "".to_owned();
+        self.details
+            .as_ref()
+            .unwrap()
+            .send_message_to_network
+            .send(message)
+            .expect("receiver closed");
+    }
 }
 
 impl eframe::App for App {
@@ -61,7 +75,7 @@ impl eframe::App for App {
                 ui.label(
                     RichText::new("Username:".to_owned())
                         .font(FontId::monospace(13.0))
-                        .color(egui::Color32::LIGHT_GREEN)
+                        .color(egui::Color32::GOLD)
                         .line_height(Some(1.0)),
                 );
                 ui.add(widget);
@@ -95,17 +109,7 @@ impl eframe::App for App {
                 .font(FontId::proportional(16.0))
                 .margin(egui::vec2(8.0, 8.0));
             if ui.add(widget).lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
-                let message_header = MessageHeader::new(self.message_count, self.username.clone());
-                self.message_count += 1;
-                let message = Message::new_message(message_header, self.current_message.clone());
-
-                self.current_message = "".to_owned();
-                self.details
-                    .as_ref()
-                    .unwrap()
-                    .send_message_to_network
-                    .send(message)
-                    .expect("receiver closed");
+                self.publish_message();
             }
         });
     }

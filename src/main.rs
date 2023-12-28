@@ -31,8 +31,6 @@ fn main() -> std::io::Result<()> {
     let is_finished = Arc::new(AtomicBool::new(false));
     let read_handle = is_finished.clone();
     let write_handle = is_finished.clone();
-    let reader_ready = Arc::new(AtomicBool::new(false));
-    let writer_ready = Arc::new(AtomicBool::new(false));
 
     let (sender, network_receiver) = std::sync::mpsc::channel::<Message>();
     let read_from_network_handle = std::thread::spawn(move || {
@@ -46,7 +44,6 @@ fn main() -> std::io::Result<()> {
             .set_read_timeout(Some(Duration::from_millis(200)))
             .unwrap();
         let udp_socket = std::net::UdpSocket::from(socket);
-        reader_ready.store(true, std::sync::atomic::Ordering::Relaxed);
 
         while !read_handle.load(std::sync::atomic::Ordering::Relaxed) {
             // TODO - make the max message size part of the spec.
@@ -72,7 +69,6 @@ fn main() -> std::io::Result<()> {
             .set_write_timeout(Some(Duration::from_millis(200)))
             .unwrap();
         let udp_socket: std::net::UdpSocket = std::net::UdpSocket::from(socket);
-        writer_ready.store(true, std::sync::atomic::Ordering::Relaxed);
 
         while !write_handle.load(std::sync::atomic::Ordering::Relaxed) {
             let val: Option<Message>;
