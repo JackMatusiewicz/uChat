@@ -11,17 +11,12 @@ pub struct Message {
 }
 
 impl Message {
-    fn get_message_type(&self) -> u8 {
-        match self.contents {
-            SpecificMessageContents::Message(_) => 1,
-        }
-    }
 
     pub fn to_bytes(&self) -> Vec<u8> {
         let username_bytes = self.header.username().as_bytes();
         let username_length_bytes = &usize::to_be_bytes(username_bytes.len())[..];
         let message_id_bytes = &u32::to_be_bytes(self.header.message_id())[..];
-        let message_type = &[Self::get_message_type(&self)][..];
+        let message_type = &[SpecificMessageContents::get_message_type(&self.contents)][..];
         let message_bytes = self.contents.to_bytes();
         let concat_bytes = [
             message_type,
@@ -34,13 +29,9 @@ impl Message {
         concat_bytes
     }
 
-    fn is_valid_message_type(b: u8) -> bool {
-        b == 1
-    }
-
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, Box<dyn Error>> {
 
-        if bytes.is_empty() || !Self::is_valid_message_type(bytes[0]) {
+        if bytes.is_empty() || !SpecificMessageContents::is_valid_message_type(bytes[0]) {
             return Err(Box::new(MessageErrors::InvalidMessageData));
         }
 
@@ -50,7 +41,7 @@ impl Message {
         let username = String::from_utf8_lossy(&bytes[13..13+username_length]);
 
         let message_contents_index = 13 + username_length;
-        let contents = SpecificMessageContents::from_bytes(&bytes[message_contents_index..])?;
+        let contents = SpecificMessageContents::from_bytes(bytes[0], &bytes[message_contents_index..])?;
         
         let header = MessageHeader::new(message_id, username.to_string());
 
@@ -61,9 +52,10 @@ impl Message {
         self.header.username()
     }
 
-    pub fn message_contents(&self) -> &String {
+    pub fn message_contents(&self) -> Option<&String> {
         match &self.contents {
-            SpecificMessageContents::Message(msg) => msg
+            SpecificMessageContents::Message(msg) => Some(msg),
+            _ => None
         }
     }
 

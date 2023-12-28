@@ -75,7 +75,7 @@ fn main() -> std::io::Result<()> {
         writer_ready.store(true, std::sync::atomic::Ordering::Relaxed);
 
         while !write_handle.load(std::sync::atomic::Ordering::Relaxed) {
-            let mut val: Option<Message> = None;
+            let val: Option<Message>;
             match receiver.try_recv() {
                 Ok(v) => {
                     val = Some(v);

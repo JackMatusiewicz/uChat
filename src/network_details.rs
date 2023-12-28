@@ -1,5 +1,4 @@
 use std::{
-    any::Any,
     sync::mpsc::{Receiver, Sender},
     thread::JoinHandle,
 };

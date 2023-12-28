@@ -38,7 +38,7 @@ impl eframe::App for App {
         let _ = details.receive_from_network_handle.join();
     }
 
-    fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         // Each update we try to pull in another message from the network.
         match self
             .details
@@ -74,14 +74,16 @@ impl eframe::App for App {
             ui.separator();
             egui::ScrollArea::vertical().show(ui, |ui| {
                 for line in self.seen_messages.iter() {
-                    ui.horizontal(|ui| {
-                        ui.label(
-                            RichText::new(line.username())
-                                .font(FontId::monospace(13.0))
-                                .color(egui::Color32::GOLD),
-                        );
-                        ui.label(RichText::new(line.message_contents()).font(FontId::monospace(13.0)));
-                    });
+                    if let Some(message) = line.message_contents() {
+                        ui.horizontal(|ui| {
+                            ui.label(
+                                RichText::new(line.username())
+                                    .font(FontId::monospace(13.0))
+                                    .color(egui::Color32::GOLD),
+                            );
+                            ui.label(RichText::new(message).font(FontId::monospace(13.0)));
+                        });
+                    }
                 }
             })
         });

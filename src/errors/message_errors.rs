@@ -4,7 +4,7 @@ pub enum MessageErrors {
 
 impl std::fmt::Display for MessageErrors {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str("InvalidMessageData");
+        f.write_str("InvalidMessageData")?;
         std::fmt::Result::Ok(())
     }
 }
