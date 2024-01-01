@@ -1,4 +1,4 @@
-use std::error::Error;
+use std::{error::Error, net::IpAddr};
 
 use super::{message_header::MessageHeader, specific_message_contents::SpecificMessageContents};
 
@@ -29,7 +29,7 @@ impl Message {
         concat_bytes
     }
 
-    pub fn from_bytes(bytes: &[u8]) -> Result<Self, Box<dyn Error>> {
+    pub fn from_bytes(ip_address: IpAddr, bytes: &[u8]) -> Result<Self, Box<dyn Error>> {
 
         if bytes.is_empty() || !SpecificMessageContents::is_valid_message_type(bytes[0]) {
             return Err(Box::new(MessageErrors::InvalidMessageData));
@@ -43,13 +43,17 @@ impl Message {
         let message_contents_index = 13 + username_length;
         let contents = SpecificMessageContents::from_bytes(bytes[0], &bytes[message_contents_index..])?;
         
-        let header = MessageHeader::new(message_id, username.to_string());
+        let header = MessageHeader::new_with_ip(message_id, username.to_string(), ip_address);
 
         Ok(Self { header, contents })
     }
 
     pub fn username(&self) -> &String {
         self.header.username()
+    }
+
+    pub fn ip_address(&self) -> Option<String> {
+        self.header.ip_address()
     }
 
     pub fn message_contents(&self) -> Option<&String> {
@@ -71,6 +75,13 @@ impl Message {
 mod test {
     use super::*;
 
+    fn check_deserialised_message(expected: Message, actual: Message, expected_ip: String) {
+        assert_eq!(expected.contents, actual.contents);
+        assert_eq!(expected.header.message_id(), actual.header.message_id());
+        assert_eq!(expected.header.username(), actual.header.username());
+        assert_eq!(Some(expected_ip), actual.header.ip_address());
+    }
+
     #[test]
     pub fn simple_round_trip() -> Result<(), Box<dyn Error>> {
         let message =
@@ -79,10 +90,9 @@ mod test {
                 "This is a test message".to_owned());
 
         let bytes = message.to_bytes();
-        let new_message = Message::from_bytes(bytes.as_slice())?;
+        let new_message = Message::from_bytes(IpAddr::from([192,168,1,0]), bytes.as_slice())?;
 
-        assert_eq!(message, new_message);
-
+        check_deserialised_message(message, new_message, "192.168.1.0".to_owned());
         Ok(())
     }
 }

@@ -49,8 +49,8 @@ fn main() -> std::io::Result<()> {
             // TODO - make the max message size part of the spec.
             let mut buf: [u8; 1024] = [0; 1024];
             match udp_socket.recv_from(&mut buf) {
-                Ok(_) => {
-                    let message = Message::from_bytes(&buf).unwrap();
+                Ok((_, ip)) => {
+                    let message = Message::from_bytes(ip.ip(), &buf).unwrap();
                     sender.send(message).unwrap();
                 }
                 _ => {}

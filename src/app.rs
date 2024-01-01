@@ -38,6 +38,12 @@ impl App {
             .send(message)
             .expect("receiver closed");
     }
+
+    fn create_user_line(message: &Message) -> String {
+        let username = message.username();
+        let ip_address = message.ip_address().map(|v| v.clone()).unwrap_or("UNKNOWN".to_owned());
+        format!("{}({}):", username, ip_address)
+    }
 }
 
 impl eframe::App for App {
@@ -91,7 +97,7 @@ impl eframe::App for App {
                     if let Some(message) = line.message_contents() {
                         ui.horizontal(|ui| {
                             ui.label(
-                                RichText::new(line.username())
+                                RichText::new(Self::create_user_line(&line))
                                     .font(FontId::monospace(13.0))
                                     .color(egui::Color32::GOLD),
                             );
