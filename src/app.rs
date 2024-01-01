@@ -26,6 +26,10 @@ impl App {
     }
 
     pub fn publish_message(&mut self) {
+        if self.current_message == "" {
+            // We don't publish empty messages, so early out.
+            return;
+        }
         let message_header = MessageHeader::new(self.message_count, self.username.clone());
         self.message_count += 1;
         let message = Message::new_message(message_header, self.current_message.clone());
@@ -109,14 +113,22 @@ impl eframe::App for App {
         });
 
         egui::TopBottomPanel::bottom("user-input").show(ctx, |ui| {
-            let widget = egui::TextEdit::singleline(&mut self.current_message)
-                .desired_width(f32::INFINITY)
-                .hint_text("Press Enter to send the message")
-                .font(FontId::proportional(16.0))
-                .margin(egui::vec2(8.0, 8.0));
-            if ui.add(widget).lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
-                self.publish_message();
-            }
+            ui.horizontal(|ui| {
+                let widget = egui::TextEdit::singleline(&mut self.current_message)
+                    .desired_width(f32::INFINITY)
+                    .hint_text("Press Enter to send the message")
+                    .font(FontId::proportional(16.0))
+                    .margin(egui::vec2(8.0, 8.0));
+    
+                let button = egui::Button::new("Send");
+
+                if ui.add(widget).lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
+                    self.publish_message();
+                }
+                if ui.add(button).clicked() {
+                    self.publish_message();
+                }
+            })
         });
     }
 }
